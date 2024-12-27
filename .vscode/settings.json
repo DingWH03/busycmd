@@ -1,0 +1,26 @@
+{
+    "files.associations": {
+        "config.h": "c",
+        "*.tcc": "c",
+        "bitset": "c",
+        "algorithm": "c",
+        "memory": "c",
+        "random": "c",
+        "fstream": "c",
+        "iosfwd": "c",
+        "iostream": "c",
+        "istream": "c",
+        "numeric": "c",
+        "ostream": "c",
+        "ratio": "c",
+        "sstream": "c",
+        "streambuf": "c",
+        "valarray": "c",
+        "*.inc": "c",
+        "input.h": "c",
+        "shell.h": "c",
+        "stdbool.h": "c",
+        "builtins.h": "c",
+        "path_utils.h": "c"
+    }
+}
