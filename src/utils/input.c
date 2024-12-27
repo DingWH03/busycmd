@@ -1,5 +1,6 @@
 #include "utils/input.h"
 #include "config.h"
+#include "builtintools.h"
 
 bool console_input(char *buffer){
     char ch, next_ch;
@@ -7,12 +8,6 @@ bool console_input(char *buffer){
     // 使用getchar()逐个读取字符
     while (1) {
         ch = getchar();  // 获取一个字符
-
-        // 在缓冲区为空时考虑EOF，表示输入结束
-        if (index == 0 && ch == EOF) {
-            buffer[index] = '\0';  // 在缓冲区末尾添加字符串结束符
-            break;  // 退出循环
-        }
 
         // 处理转义字符 '\\n'，替换为换行符
         if (ch == '\\') {
@@ -30,7 +25,13 @@ bool console_input(char *buffer){
             // 如果是换行符，结束输入并加入缓冲区
             buffer[index] = '\0';  // 在缓冲区末尾添加字符串结束符
             break;  // 退出循环
-        } else {
+        } else if (ch == EOF) {
+            // 如果是EOF，结束输入并退出shell
+            buffer[index] = '\0';  // 在缓冲区末尾添加字符串结束符
+            exit_shell();  // 退出shell
+            break;  // 退出循环
+        } 
+        else{
             buffer[index++] = ch;  // 将字符存入缓冲区
         }
 

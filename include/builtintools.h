@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#define NUM_BUILTINS 1
+#define NUM_BUILTINS 7
 
 extern const char *builtin_commands[NUM_BUILTINS];
 
@@ -29,5 +29,12 @@ bool execute_builtin(char **command);
 
 // 内置命令原型
 bool builtin_echo(const char **args);
+
+void change_directory(const char *path);
+
+void print_shell_env();
+
+
+void exit_shell();
 
 #endif

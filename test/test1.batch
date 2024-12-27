@@ -1,0 +1,45 @@
+@echo off
+REM 使用 FOR 循环来列出当前目录下的所有文件
+echo Listing all files in the current directory:
+for %%f in (*) do echo %%f
+
+REM 使用 IF 语句来检查文件是否存在
+echo Checking if a file exists:
+if exist "test_file.txt" (
+    echo "test_file.txt" found.
+) else (
+    echo "test_file.txt" not found.
+)
+
+REM 使用 GOTO 和 LABEL 来实现简单的跳转
+echo Starting loop:
+:loop_start
+echo Loop iteration
+set /a count+=1
+if %count% leq 5 goto loop_start
+echo Loop finished
+
+REM 使用 CALL 来调用另一个批处理文件（如果存在）
+echo Calling another batch file:
+call another_batch_file.bat
+
+REM 使用 CHOICE 来实现简单的用户交互
+echo Please choose an option:
+choice /c 123 /n /m "Select 1, 2, or 3"
+if errorlevel 3 goto option3
+if errorlevel 2 goto option2
+if errorlevel 1 goto option1
+
+:option1
+echo Option 1 selected.
+goto end
+
+:option2
+echo Option 2 selected.
+goto end
+
+:option3
+echo Option 3 selected.
+
+:end
+echo Test batch file completed.
