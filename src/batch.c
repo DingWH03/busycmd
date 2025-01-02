@@ -333,16 +333,16 @@ static bool execute_for_loop(FILE *file, char *line) {
         return false;
     }
 
-    // Record the current position as the start of the loop body
+    // 记录循环体的开始位置
     long loop_start_pos = ftell(file);
 
     // Find the position of )
     long loop_end_pos = -1;
     char loop_line[MAX_LINE_LENGTH];
-    long current_pos = ftell(file); // Initialize current_pos
+    long current_pos = ftell(file); // 初始化current_pos
 
     while (fgets(loop_line, sizeof(loop_line), file)) {
-        // Remove newline characters
+        // 移除换行符
         loop_line[strcspn(loop_line, "\r\n")] = 0;
         
         // Check for )
@@ -352,7 +352,7 @@ static bool execute_for_loop(FILE *file, char *line) {
             break;
         }
         
-        current_pos = ftell(file); // Update current_pos after reading the line
+        current_pos = ftell(file); // 更新current_pos
     }
 
     if (loop_end_pos == -1) {
@@ -367,16 +367,16 @@ static bool execute_for_loop(FILE *file, char *line) {
         return true;
     }
 
-    // Execute the loop
+    // 执行循环
     for (int i = start; (step > 0) ? (i <= end) : (i >= end); i += step) {
         char value_str[32];
         snprintf(value_str, sizeof(value_str), "%d", i);
-        set_environment_variable(var, process_value(value_str)); // Use your environment setter
+        set_environment_variable(var, process_value(value_str)); // 放在环境变量中
 
-        // Seek to the start of the loop body
+        // 寻找循环体的开始
         fseek(file, loop_start_pos, SEEK_SET);
 
-        // Execute each line in the loop body
+        // 执行循环体内每一行指令
         while (ftell(file) < loop_end_pos && fgets(loop_line, sizeof(loop_line), file)) {
             // Remove newline characters
             loop_line[strcspn(loop_line, "\r\n")] = 0;
@@ -386,7 +386,7 @@ static bool execute_for_loop(FILE *file, char *line) {
                 continue;
             }
             
-            // Execute the command
+            // 执行指令
             // printf("Executing command inside FOR loop: %s\n", loop_line);
             if (!execute_single_command(loop_line, file)) {
                 fprintf(stderr, "Error executing command inside FOR loop: %s\n", loop_line);
