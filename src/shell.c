@@ -9,6 +9,7 @@
 #include "builtintools.h"
 #include "utils/path_utils.h"
 #include "utils/input.h"
+#include "utils/execvpe_custom.h"
 #include "config.h"
 #include <stdbool.h>
 #include <string.h>
@@ -152,7 +153,7 @@ bool execute_command(const char *command) {
             perror("Fork failed");
         } else if (pid == 0) {
             char **env = build_env_array();
-            if (execvpe(args[0], args, env) == -1) {
+            if (execvpe_custom(args[0], args, env) == -1) {
                 perror("Error executing command");
                 free_env_array(env);
                 exit(EXIT_FAILURE);
