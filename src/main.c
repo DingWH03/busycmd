@@ -7,11 +7,12 @@
 
 int main(int argc, char *argv[]) {
     if (argc == 1) shell_loop();
-    else if (argc == 2){
-        printf("Excute batch file: %s\n", argv[1]);
-        execute_batch_file(argv[1]);
+    else {
+        printf("Execute batch file: %s, argc:%d\n", argv[1], argc-2);
+        // for (int i = 2; i < argc; i++) {
+        //     printf("argv[%d]: %s\n", i, argv[i]);
+        // }
+        execute_batch_file(argv[1], argc-2, argv+2);
     }
-    else
-    printf("Usage: %s [batchfile]\n", argv[0]);
     return 0;
 }

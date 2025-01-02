@@ -30,8 +30,8 @@ static char *variables[MAX_VARIABLES];
 static int variable_count = 0;
 
 // 当前批处理文件的参数
-static char *batch_args[MAX_ARGS];
-static int batch_argc = 0;
+char *batch_args[MAX_ARGS];
+int batch_argc = 0;
 
 #define MAX_RESULT_LENGTH 100
 
@@ -96,36 +96,87 @@ char* process_value(const char *input) {
 }
 
 // 替换字符串中的 %%VAR%% 为对应的环境变量值
+// 修改后的 replace_variables 函数，增加了 batch_args 和 batch_argc 参数
 static void replace_variables(char *dest, const char *src) {
     const char *p = src;
     char var_name[MAX_LABEL_LENGTH];
     char *d = dest;
 
+    // 移动指针，跳过前面的空格字符
+    while (*p != '\0' && isspace((unsigned char)*p)) {
+        p++;
+    }
+
     while (*p) {
-        if (*p == '%' && *(p + 1) != '\0') {
-            p++; // 跳过第一个 %
-            const char *start = p;
-            // 查找下一个 %
-            while (*p && *p != '%') {
-                p++;
-            }
-            if (*p == '%') {
-                size_t len = p - start;
-                if (len < MAX_LABEL_LENGTH) {
-                    strncpy(var_name, start, len);
+        if (*p == '%') {
+            const char *start = p + 1; // 跳过第一个 '%'
+
+            // 判断下一个字符是否也是 '%', 以支持 %%VAR%% 形式
+            if (*start == '%') {
+                // 处理 %%VAR%% 形式
+                start++; // 跳过第二个 '%'
+                const char *var_start = start;
+
+                // 查找下一个 '%'
+                while (*start && *start != '%') {
+                    start++;
+                }
+
+                if (*start == '%') {
+                    size_t len = start - var_start;
+                    if (len < MAX_LABEL_LENGTH) {
+                        strncpy(var_name, var_start, len);
+                        var_name[len] = '\0';
+
+                        const char *var_value = get_env_value(var_name);
+                        // 调试输出
+                        // printf("Environment Variable Found: %s = %s\n", var_name, var_value ? var_value : "NULL");
+
+                        if (var_value) {
+                            strcpy(d, var_value);
+                            d += strlen(var_value);
+                        }
+                    }
+                    p = start + 1; // 跳过结束的 '%'
+                } else {
+                    // 如果没有找到结束的 '%', 复制所有字符
+                    strcpy(d, "%%");
+                    d += 2;
+                    p = var_start;
+                }
+            } else if (isdigit((unsigned char)*start)) {
+                // 处理 %1, %2 等批处理参数
+                const char *arg_start = start;
+                while (isdigit((unsigned char)*start)) {
+                    start++;
+                }
+                size_t len = start - arg_start;
+                if (len > 0 && len < MAX_LABEL_LENGTH) {
+                    strncpy(var_name, arg_start, len);
                     var_name[len] = '\0';
-                    const char *var_value = get_env_value(var_name);
-                    // printf("%s: %s\n", var_name, var_value);
-                    if (var_value) {
-                        strcpy(d, var_value);
-                        d += strlen(var_value);
+                    int arg_index = atoi(var_name) - 1; // 批处理参数从1开始
+
+                    // 调试输出
+                    // printf("Batch Argument Found: %s (Index: %d)\n", var_name, arg_index);
+
+                    if (arg_index >= 0 && arg_index < batch_argc) {
+                        const char *arg_value = batch_args[arg_index];
+                        if (arg_value) {
+                            strcpy(d, arg_value);
+                            d += strlen(arg_value);
+                        }
                     }
                 }
-                p++; // 跳过结束的 %
+
+                // 如果后面有 '%', 跳过它
+                if (*start == '%') {
+                    p = start + 1;
+                } else {
+                    p = start;
+                }
             } else {
-                // 如果没有找到结束的 %, 直接复制
-                *d++ = '%';
-                p = start;
+                // 单独的 '%'，直接复制
+                *d++ = *p++;
             }
         } else {
             *d++ = *p++;
@@ -134,9 +185,8 @@ static void replace_variables(char *dest, const char *src) {
     *d = '\0';
 }
 
-
 // 去除字符串前面的空格
-void trim_left_spaces(char *str) {
+char* trim_left_spaces(char *str) {
     // 如果字符串为空或为 NULL，直接返回
     if (str == NULL) return;
     
@@ -144,9 +194,7 @@ void trim_left_spaces(char *str) {
     while (*str != '\0' && isspace((unsigned char)*str)) {
         str++;
     }
-    
-    // 将新的字符串赋值给原始字符串
-    printf("Trimmed string: '%s'\n", str);
+    return str;
 }
 
 
@@ -162,43 +210,115 @@ static bool goto_label(FILE *file, const char *label_name) {
     return false;
 }
 
-// 解析 IF 条件
+// 比较函数实现
+bool compare(const char *str1, const char *str2, const char *operator) {
+    if (str1 == NULL || str2 == NULL || operator == NULL) {
+        // 参数无效
+        return false;
+    }
+
+    if (is_number(str2)) {
+        // 如果 str2 是数字，进行数值比较
+        char *endptr1, *endptr2;
+        double num1 = strtod(str1, &endptr1);
+        double num2 = strtod(str2, &endptr2);
+
+        // 检查 str1 是否也是有效的数字
+        if (*endptr1 != '\0') {
+            // str1 不是有效的数字
+            return false;
+        }
+
+        // 根据 operator 进行比较
+        if (strcmp(operator, "==") == 0) {
+            return num1 == num2;
+        } else if (strcmp(operator, "!=") == 0) {
+            return num1 != num2;
+        } else if (strcmp(operator, ">") == 0) {
+            return num1 > num2;
+        } else if (strcmp(operator, "<") == 0) {
+            return num1 < num2;
+        } else if (strcmp(operator, ">=") == 0) {
+            return num1 >= num2;
+        } else if (strcmp(operator, "<=") == 0) {
+            return num1 <= num2;
+        } else {
+            // 不支持的运算符
+            fprintf(stderr, "Unsupported operator: %s\n", operator);
+            return false;
+        }
+    } else {
+        // 如果 str2 不是数字，进行字符串比较（仅支持 "==" 和 "!="）
+        if (strcmp(operator, "==") == 0) {
+            return strcmp(str1, str2) == 0;
+        } else if (strcmp(operator, "!=") == 0) {
+            return strcmp(str1, str2) != 0;
+        } else {
+            // 不支持的运算符
+            fprintf(stderr, "Unsupported operator for string comparison: %s\n", operator);
+            return false;
+        }
+    }
+}
+
 static bool parse_if_condition(const char *condition) {
-    printf("Condition: %s\n", condition);
+    // printf("Condition: %s\n", condition);
     
     char var[MAX_LABEL_LENGTH], operator_str[3];
-    double value1, value2, env_value;
-
-    // 处理 %VAR%==value 格式的条件
-    if (sscanf(condition, "%%%[^%]%% %2s %lf", var, operator_str, &value2) == 3) {
-        const char *env_value_str = get_env_value(var); // 使用 get_env_value 替代 getenv
+    char value1[MAX_LABEL_LENGTH], value2[MAX_LABEL_LENGTH];
+    const char *op_position = NULL;
+    
+    // 支持的操作符列表
+    const char* operators[] = {"==", "!=", ">=", "<=", ">", "<"};
+    int num_operators = sizeof(operators) / sizeof(operators[0]);
+    
+    // 查找操作符
+    for(int i = 0; i < num_operators; i++) {
+        op_position = strstr(condition, operators[i]);
+        if(op_position != NULL) {
+            strcpy(operator_str, operators[i]);
+            break;
+        }
+    }
+    
+    if(op_position == NULL) {
+        fprintf(stderr, "Error: No valid operator found in condition '%s'\n", condition);
+        return false;
+    }
+    
+    // 分割左操作数和右操作数
+    size_t lhs_length = op_position - condition;
+    strncpy(value1, condition, lhs_length);
+    value1[lhs_length] = '\0';
+    
+    strcpy(value2, op_position + strlen(operator_str));
+    
+    // 去除可能的引号和空格
+    // 这里可以根据需要添加更多的处理
+    // 例如去除引号:
+    if(value1[0] == '\"') {
+        memmove(value1, value1+1, strlen(value1));
+        value1[strlen(value1)-1] = '\0';
+    }
+    if(value2[0] == '\"') {
+        memmove(value2, value2+1, strlen(value2));
+        value2[strlen(value2)-1] = '\0';
+    }
+    
+    // 处理 %VAR% 格式
+    if(value1[0] == '%' && value1[strlen(value1)-1] == '%') {
+        value1[strlen(value1)-1] = '\0';
+        strcpy(var, value1 + 1);
+        const char *env_value_str = get_env_value(var);
         if (env_value_str == NULL) {
             fprintf(stderr, "Warning: Environment variable '%s' is not set.\n", var);
             return false;
         }
-
-        // 将环境变量的值转换为 double
-        env_value = strtod(env_value_str, NULL);
-
-        if (strcmp(operator_str, "==") == 0) {
-            return env_value == value2;
-        } else if (strcmp(operator_str, "!=") == 0) {
-            return env_value != value2;
-        }
-        // TODO: 处理更多操作符
-    } 
-    // 处理简单的数字比较（如 1==5）
-    else if (sscanf(condition, "%lf %2s %lf", &value1, operator_str, &value2) == 3) {
-        // 判断操作符
-        if (strcmp(operator_str, "==") == 0) {
-            return value1 == value2;
-        } else if (strcmp(operator_str, "!=") == 0) {
-            return value1 != value2;
-        }
-        // TODO: 处理更多操作符
+        return compare(env_value_str, process_value(value2), operator_str);
     } else {
-        fprintf(stderr, "Error: Failed to parse IF condition '%s'\n", condition);
+        return compare(value1, process_value(value2), operator_str);
     }
+    
     return false;
 }
 
@@ -219,16 +339,20 @@ static bool execute_for_loop(FILE *file, char *line) {
     // Find the position of )
     long loop_end_pos = -1;
     char loop_line[MAX_LINE_LENGTH];
+    long current_pos = ftell(file); // Initialize current_pos
+
     while (fgets(loop_line, sizeof(loop_line), file)) {
         // Remove newline characters
         loop_line[strcspn(loop_line, "\r\n")] = 0;
         
         // Check for )
         if (strncmp(loop_line, ")", 1) == 0) {
-            loop_end_pos = ftell(file);
-            printf("Found ) at position %ld\n", loop_end_pos);
+            loop_end_pos = current_pos; // Set to position before ')'
+            // printf("Found ) at position %ld\n", loop_end_pos);
             break;
         }
+        
+        current_pos = ftell(file); // Update current_pos after reading the line
     }
 
     if (loop_end_pos == -1) {
@@ -263,87 +387,11 @@ static bool execute_for_loop(FILE *file, char *line) {
             }
             
             // Execute the command
-            printf("Executing command inside FOR loop: %s\n", loop_line);
+            // printf("Executing command inside FOR loop: %s\n", loop_line);
             if (!execute_single_command(loop_line, file)) {
                 fprintf(stderr, "Error executing command inside FOR loop: %s\n", loop_line);
                 return false;
             }
-        }
-    }
-
-    // After loop, seek to loop_end_pos to continue execution
-    fseek(file, loop_end_pos, SEEK_SET);
-    return true;
-}
-
-// Corrected execute_while_loop function
-static bool execute_while_loop(FILE *file, char *line) {
-    // Simple WHILE syntax: WHILE condition
-    char condition[MAX_LINE_LENGTH];
-    
-    // Parse the WHILE command
-    if (sscanf(line, "WHILE %[^\n]", condition) != 1) {
-        fprintf(stderr, "Error: Invalid WHILE command. Expected syntax: WHILE condition\n");
-        return false;
-    }
-
-    // Record the current position as the start of the loop body
-    long loop_start_pos = ftell(file);
-
-    // Find the position of ENDWHILE
-    long loop_end_pos = -1;
-    char loop_line[MAX_LINE_LENGTH];
-    while (fgets(loop_line, sizeof(loop_line), file)) {
-        // Remove newline characters
-        loop_line[strcspn(loop_line, "\r\n")] = 0;
-        
-        // Check for ENDWHILE
-        if (strncmp(loop_line, "ENDWHILE", 8) == 0) {
-            loop_end_pos = ftell(file);
-            break;
-        }
-    }
-
-    if (loop_end_pos == -1) {
-        fprintf(stderr, "Error: ENDWHILE not found for WHILE loop starting at position %ld\n", loop_start_pos);
-        return false;
-    }
-
-    // Execute the loop
-    while (1) {
-        // Process variable replacements in the condition
-        char processed_condition[MAX_LINE_LENGTH];
-        replace_variables(processed_condition, condition);
-        
-        // Evaluate the condition
-        if (!parse_if_condition(processed_condition)) {
-            break; // Exit loop if condition is false
-        }
-
-        // Seek to the start of the loop body
-        fseek(file, loop_start_pos, SEEK_SET);
-
-        // Execute each line in the loop body
-        bool any_command_failed = false;
-        while (ftell(file) < loop_end_pos && fgets(loop_line, sizeof(loop_line), file)) {
-            // Remove newline characters
-            loop_line[strcspn(loop_line, "\r\n")] = 0;
-            
-            // Skip labels, empty lines, and comments
-            if (loop_line[0] == ':' || loop_line[0] == '\0' || loop_line[0] == '#') {
-                continue;
-            }
-            
-            // Execute the command
-            if (!execute_single_command(loop_line, file)) {
-                fprintf(stderr, "Error executing command inside WHILE loop: %s\n", loop_line);
-                any_command_failed = true;
-                break;
-            }
-        }
-
-        if (any_command_failed) {
-            return false;
         }
     }
 
@@ -357,7 +405,8 @@ static bool execute_while_loop(FILE *file, char *line) {
 bool execute_single_command(const char *line, FILE *current_file_pointer) {
     char processed_line[MAX_LINE_LENGTH];
     replace_variables(processed_line, line); // 进行变量替换
-    // trim_left_spaces(processed_line); // 去除前导空格
+    // 移动指针，跳过前面的空格字符
+    // printf("Executing command: %s\n", processed_line);
 
     if (strncmp(processed_line, "GOTO", 4) == 0) {
         char label[MAX_LABEL_LENGTH];
@@ -375,7 +424,7 @@ bool execute_single_command(const char *line, FILE *current_file_pointer) {
         char condition[MAX_LINE_LENGTH], action[MAX_LINE_LENGTH];
         if (sscanf(processed_line + 3, "%[^ ] %[^\n]", condition, action) == 2) {
             if (parse_if_condition(condition)) {
-                printf("Condition is true: %s\n", action);
+                // printf("Condition is true: %s\n", action);
                 // 修改这里，调用 execute_single_command 而不是 execute_command
                 execute_single_command(action, current_file_pointer);
             }
@@ -397,9 +446,22 @@ bool execute_single_command(const char *line, FILE *current_file_pointer) {
     } else if (strncmp(processed_line, "FOR", 3) == 0) {
         // 实现 FOR 循环
         return execute_for_loop(current_file_pointer, processed_line);
-    } else if (strncmp(processed_line, "WHILE", 5) == 0) {
-        // 实现 WHILE 循环
-        return execute_while_loop(current_file_pointer, processed_line);
+    } else if(is_builtin_command(processed_line)) {
+        // 实现其他内置命令
+        char *args[MAX_ARGS];
+        int argc = 0;
+        char *token = strtok(processed_line, " ");
+        while (token) {
+            args[argc++] = token;
+            token = strtok(NULL, " ");
+        }
+        args[argc] = NULL;
+        if (is_builtin_command(args[0])) {
+            return execute_builtin(args);
+        }
+    }else if(strncmp(processed_line, ")", 1) == 0) {
+        // 忽略 )
+        return true;
     } else {
         // 执行外部命令
         return execute_command(processed_line);
@@ -409,8 +471,13 @@ bool execute_single_command(const char *line, FILE *current_file_pointer) {
 
 
 // 解析 .batch 文件
-bool execute_batch_file(const char *filename) {
+bool execute_batch_file(const char *filename, int argc, char **args) {
     load_system_env(); // 加载系统环境变量
+    for (int i = 0; i < argc && i < MAX_ARGS; ++i) {
+        batch_args[i] = args[i];
+        // printf("arg[%d]: %s\n", i, batch_args[i]);
+    }
+    batch_argc = argc;
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Error opening batch file");
@@ -458,11 +525,6 @@ bool execute_batch_file(const char *filename) {
             }
         } else if (strncmp(line, "FOR", 3) == 0) {
             if (!execute_for_loop(file, line)) {
-                fclose(file);
-                return false;
-            }
-        } else if (strncmp(line, "WHILE", 5) == 0) {
-            if (!execute_while_loop(file, line)) {
                 fclose(file);
                 return false;
             }
