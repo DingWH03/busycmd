@@ -1,0 +1,9 @@
+#@echo off
+SET COUNT=1
+:loop
+ECHO Current count is %COUNT%
+IF %COUNT%==5 GOTO end
+SET COUNT=%COUNT%+1
+GOTO loop
+:end
+ECHO Loop ended.

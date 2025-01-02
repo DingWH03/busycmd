@@ -1,0 +1,68 @@
+#@echo off
+# 测试批处理解释程序的脚本
+
+# 设置初始变量
+SET VAR1=10
+SET VAR2=20
+ECHO 初始变量设置完成：VAR1=%VAR1%, VAR2=%VAR2%
+
+# 测试 IF 语句
+IF %VAR1%==10 ECHO VAR1 等于 10
+IF %VAR2%==30 GOTO LABEL_SKIP_IF
+ECHO 这行不会被执行，因为 VAR2 不等于 30
+GOTO LABEL_AFTER_IF
+
+:LABEL_SKIP_IF
+ECHO 跳过了 VAR2 不等于 30 的条件
+
+:LABEL_AFTER_IF
+ECHO IF 语句测试完成
+
+# 测试 FOR 循环
+ECHO 开始 FOR 循环
+FOR %%G IN (1 5 1) DO (
+    ECHO 循环计数器：%%G
+)
+ECHO FOR 循环测试完成
+
+# 测试 WHILE 循环
+SET COUNTER=1
+ECHO 开始 WHILE 循环
+:WHILE_LOOP
+IF %COUNTER% LEQ 5 (
+    ECHO WHILE 循环计数器：%COUNTER%
+    SET /A COUNTER=%COUNTER% + 1
+    GOTO WHILE_LOOP
+)
+ECHO WHILE 循环测试完成
+
+# 测试 SHIFT 命令
+ECHO 原始参数：%1 %2 %3 %4 %5
+SHIFT
+ECHO 执行一次 SHIFT 后：%1 %2 %3 %4 %5
+SHIFT
+ECHO 再次执行 SHIFT 后：%1 %2 %3 %4 %5
+
+# 测试 GOTO 和标签
+ECHO 这行将在 GOTO 后被跳过
+GOTO END_LABEL
+ECHO 这行不会被执行
+
+:END_LABEL
+ECHO GOTO 和标签测试完成
+
+# 测试复杂的 IF 语句执行 GOTO
+SET VAR3=Hello
+IF "%VAR3%"=="Hello" GOTO LABEL_VAR3
+ECHO 这行不会被执行，因为 VAR3 等于 Hello
+GOTO LABEL_AFTER_VAR3
+
+:LABEL_VAR3
+ECHO VAR3 的值为 Hello，已跳转到 LABEL_VAR3
+GOTO LABEL_AFTER_VAR3
+
+:LABEL_AFTER_VAR3
+ECHO 复杂 IF 语句测试完成
+
+# 结束脚本
+ECHO 批处理脚本测试完成

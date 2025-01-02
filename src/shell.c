@@ -66,6 +66,7 @@ const char* get_env_value(const char* name) {
 
 // 设置环境变量
 void set_environment_variable(const char *name, const char *value) {
+    // printf("Set %s=%s\n", name, value);
     // 查找该环境变量是否已经存在
     for (int i = 0; i < env_count; ++i) {
         if (strcmp(shell_env[i].name, name) == 0) {
