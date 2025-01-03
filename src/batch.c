@@ -185,19 +185,6 @@ static void replace_variables(char *dest, const char *src) {
     *d = '\0';
 }
 
-// 去除字符串前面的空格
-char* trim_left_spaces(char *str) {
-    // 如果字符串为空或为 NULL，直接返回
-    if (str == NULL) return;
-    
-    // 移动指针，跳过前面的空格字符
-    while (*str != '\0' && isspace((unsigned char)*str)) {
-        str++;
-    }
-    return str;
-}
-
-
 // 跳转到指定标号
 static bool goto_label(FILE *file, const char *label_name) {
     for (int i = 0; i < label_count; ++i) {
@@ -433,7 +420,7 @@ bool execute_single_command(const char *line, FILE *current_file_pointer) {
         }
     } else if (strncmp(processed_line, "ECHO", 4) == 0) {
         const char *args[] = { "echo", processed_line + 5, NULL };
-        builtin_echo((char **)args);
+        builtin_echo((const char **)args);
     } else if (strncmp(processed_line, "SHIFT", 5) == 0) {
         // 实现 SHIFT 命令
         if (batch_argc > 0) {
