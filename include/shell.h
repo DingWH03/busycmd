@@ -17,6 +17,7 @@ void set_environment_variable(const char *name, const char *value);
 void unset_environment_variable(const char *name);
 // 查找环境变量的值
 const char* get_env_value(const char* name);
+void load_system_env();
 
 /**
  * Starts the shell loop, reading and executing commands until exit.
